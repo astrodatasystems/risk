@@ -59,8 +59,9 @@ American Family insures homes and properties across the Midwest. Severe weather 
 
 - **Local machine:** Windows, VSCode, Claude Code, conda environment `risk` with Python 3.12
 - **No Docker locally** — Cloud Build handles container builds in the cloud
-- **GCP project:** `gen-lang-client-0760156973`
+- **GCP project:** `risk-model-project`
 - **GCP region:** `us-central1`
+- **GCP authentication:** gcloud CLI installed locally and authenticated via Application Default Credentials. Local Python can connect to BigQuery and GCS in project risk-model-project.
 - **Framework:** Kedro (blank project, no starter template)
 - **Project name:** `risk`
 - **Kedro package name:** `risk`
@@ -126,9 +127,9 @@ risk/
 
 ## GCP Resources (to be created)
 
-- **BigQuery datasets:** `bronze`, `silver`, `gold`
-- **GCS bucket:** `risk-model-{project_id}` (for model artifacts, raw file landing)
-- **Artifact Registry:** `risk-model` (Docker images)
+- **BigQuery datasets:** `bronze`, `silver`, `gold` in `us-central1`
+- **GCS bucket:** `risk-model-bucket-805162305638` (for model artifacts, raw file landing)
+- **Artifact Registry:** `risk-model` in `us-central1` (Docker images)
 - **Cloud Run Services:** Real-time prediction API
 - **Cloud Run Jobs:** Ingestion, training, batch scoring
 - **Cloud Scheduler:** Triggers for ingestion and batch scoring
