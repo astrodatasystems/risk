@@ -18,3 +18,11 @@ storm_events_silver:
   save_args:
     engine: pyarrow
     index: false
+
+# ── Gold output (feature_engineering pipeline) ─────────────────
+storm_events_gold:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/storm_events_gold.parquet
+  save_args:
+    engine: pyarrow
+    index: false
