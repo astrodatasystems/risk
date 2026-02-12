@@ -5,7 +5,13 @@
       "Bash(kedro:*)",
       "Bash(git init:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:www.ncei.noaa.gov)",
+      "Bash(python:*)",
+      "Bash(dir:*)",
+      "Bash(conda run:*)"
     ],
     "deny": [],
     "ask": []
