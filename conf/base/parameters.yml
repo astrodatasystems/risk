@@ -1,0 +1,9 @@
+# =============================================================
+# Parameters — shared configuration for all pipelines
+# =============================================================
+# Override per-environment in conf/local/parameters.yml or
+# conf/gcp/parameters.yml (e.g., GCS paths for production).
+# =============================================================
+
+# ── data_processing pipeline ─────────────────────────────────
+raw_data_path: data/01_raw/noaa

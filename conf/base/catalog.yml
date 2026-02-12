@@ -1,4 +1,20 @@
-# Here you can define all your datasets by using simple YAML syntax.
+# =============================================================
+# Data Catalog — Kedro dataset declarations
+# =============================================================
+# Naming convention follows the Medallion architecture:
+#   01_raw      = Bronze (raw, untouched)
+#   02_intermediate = Silver (cleaned, typed)
+#   03_primary  = Gold (aggregated, business-ready)
 #
-# Documentation for this file format can be found in "The Data Catalog"
-# Link: https://docs.kedro.org/en/stable/catalog-data/introduction/#data-catalog
+# Intermediate DataFrames (bronze_combined, bronze_selected, etc.)
+# are NOT listed here — Kedro keeps them in memory during the run.
+# Only datasets that need to be persisted to disk are registered.
+# =============================================================
+
+# ── Silver output (data_processing pipeline) ─────────────────
+storm_events_silver:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/storm_events_silver.parquet
+  save_args:
+    engine: pyarrow
+    index: false
