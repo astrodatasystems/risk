@@ -1,0 +1,5 @@
+{
+  "low_max": 100000,
+  "moderate_max": 1000000,
+  "high_max": 10000000
+}

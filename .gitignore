@@ -18,6 +18,11 @@ data/**
 # also keep all .gitkeep files
 !.gitkeep
 
+# keep model artifacts needed by the container (~2 MB total)
+!data/04_feature/storm_events_gold.parquet
+!data/06_models/damage_model.joblib
+!data/06_models/tier_thresholds.json
+
 # ignore kedro-viz metadata
 .viz
 
