@@ -91,7 +91,6 @@ steps:
     entrypoint: "gcloud"
     args:
       - "run"
-      - "services"
       - "deploy"
       - "risk-api"
       - "--image"
