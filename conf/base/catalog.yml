@@ -54,3 +54,18 @@ feature_importance:
   save_args:
     engine: pyarrow
     index: false
+
+# ── Scoring pipeline datasets ──────────────────────────────────
+scoring_features:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/scoring_features.parquet
+  save_args:
+    engine: pyarrow
+    index: false
+
+county_risk_scores:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/county_risk_scores.parquet
+  save_args:
+    engine: pyarrow
+    index: false

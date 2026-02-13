@@ -74,7 +74,12 @@ American Family insures homes and properties across the Midwest. Severe weather 
 
 ### Where We Pick Up
 
-**Phase 4 — Production.** Build scoring pipeline (batch and real-time), CI/CD, testing, deployment to Cloud Run.
+**Phase 4 — Production.** Goal: close the MLOps Level 2 outer loop. Next steps:
+1. **Scoring pipeline** — batch scoring (Kedro pipeline → BigQuery) + real-time scoring (FastAPI on Cloud Run)
+2. **Containerize** — Dockerfile for Kedro pipelines (Cloud Run Jobs) and FastAPI service (Cloud Run Services)
+3. **CI/CD** — Cloud Build triggers on GitHub push: lint, test, build container, deploy
+4. **Deploy** — Cloud Run Jobs for batch pipelines, Cloud Run Service for real-time API
+5. **Monitoring** — prediction logging, data drift detection, model performance dashboards
 
 ## Technical Setup
 
@@ -164,6 +169,7 @@ risk/
 3. **No Docker locally.** Cloud Build handles it. Our workflow: write code → push to GitHub → Cloud Build builds container → deploys to Cloud Run.
 4. **One regressor, derived tiers.** A single LightGBM damage regressor predicts dollar damage; risk tiers (Low/Moderate/High/Extreme) are derived from predicted damage via configurable thresholds. Simpler than two separate models and ensures tiers are consistent with the dollar prediction.
 5. **Model artifacts in GCS with commit SHA.** Full traceability from prediction → model version → code version → data version.
+6. **Targeting MLOps Level 2 (CI/CD for the pipeline itself).** Our north star is Google Cloud's MLOps maturity framework ([reference](https://docs.cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning)). Level 2 means CI/CD applies to the *pipeline* itself, not just the model: code change → CI (test pipeline) → CD (deploy pipeline) → CT (retrain automatically) → Model Registry → Serving → Monitoring → feedback loop. This closes the "outer loop" — a code change to feature engineering or model training automatically propagates through build, test, deploy, retrain, and serve.
 
 ## Interview Connection — JD Requirements Map
 

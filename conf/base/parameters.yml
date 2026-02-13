@@ -44,3 +44,8 @@ model_training:
     low_max: 100000
     moderate_max: 1000000
     high_max: 10000000
+
+# ── scoring pipeline ───────────────────────────────────────────
+scoring:
+  feature_year: 2024
+  model_version: "v1.0-log_transform"
