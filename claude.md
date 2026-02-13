@@ -55,6 +55,34 @@ American Family insures homes and properties across the Midwest. Severe weather 
 **Phase 4 — Production:** Testing, CI/CD, deployment, monitoring
 **Phase 5 — Enterprise Grade:** Security/IAM, governance, scalability, retraining, operational patterns, enterprise integration
 
+### What's Done
+
+**Phase 1 — Foundation (complete)**
+- Problem statement, 5-layer architecture, Kedro project scaffold, GCP project configured, local environment working.
+
+**Phase 2 — Data (complete)**
+- **Bronze:** 15 NOAA Storm Events detail files (2010–2024), 965,327 raw events stored in `data/01_raw/noaa/`.
+- **Silver:** `data_processing` Kedro pipeline — filtered to county events (CZ_TYPE=C), parsed damage strings (K/M/B → dollars), built 5-digit FIPS codes, parsed timestamps. 556,431 rows in `data/02_intermediate/storm_events_silver.parquet`.
+- **Gold:** `feature_engineering` Kedro pipeline — county-year aggregation with 24 features covering volume, damage, event type counts, severity, and seasonality. 45,215 rows (3,256 counties × 15 years) in `data/04_feature/storm_events_gold.parquet`.
+- **Note:** `n_winter_weather` is all zeros because winter events are zone-level (CZ_TYPE=Z, filtered out by design); column reserved for future data source enrichment.
+
+**Phase 3 — ML Core (in progress)**
+- **`model_training` Kedro pipeline** — 6-node DAG: create_training_data → split_train_test → train_damage_model → (evaluate_model | extract_feature_importance | save_model_artifact).
+- **Lagged training design:** Features from year Y predict `total_property_damage_dollars` in year Y+1 for the same county. Mirrors real deployment — this year's weather prices next year's policy.
+- **Temporal split:** Train on target_year 2011–2022 (34,445 rows), test on target_year 2023–2024 (5,811 rows). Never random-split time series.
+- **Model:** LightGBM regressor (500 trees, lr=0.05, max_depth=6) trained on 19 features. LightGBM handles NaN natively — no imputation needed.
+- **Log-transform target:** `log1p(target_damage)` compresses heavy right skew. Predictions inverse-transformed with `expm1` for dollar-space evaluation.
+- **MLflow experiment tracking:** kedro-mlflow plugin auto-creates runs under experiment `storm_risk_model`. Params, metrics (log-space + dollar-space), confusion matrix PNG, feature importance PNG, and full model artifact all logged per run.
+- **Current metrics (log-transform run):**
+  - Dollar-space: RMSE=$26.3M, MAE=$2.1M, R²=-0.006, MedAE=$11.9K
+  - Log-space: RMSE=4.87, MAE=4.01, R²=0.27
+  - Tier accuracy: 73.0% (up from 25.8% baseline before log-transform)
+- **Outputs:** `data/05_model_input/training_data.parquet`, `data/06_models/damage_model.joblib`, `data/06_models/tier_thresholds.json`, `data/08_reporting/evaluation_metrics.json`, `data/08_reporting/feature_importance.parquet`
+
+### Where We Pick Up
+
+**Phase 3 — ML Core (remaining).** The damage regressor pipeline is functional with 73% tier accuracy. Remaining Phase 3 work: improve model to hit ≥75% tier accuracy target (hyperparameter tuning, feature enrichment), add SHAP explainability, and optionally build a dedicated risk tier classifier. Then move to Phase 4 — scoring pipelines, FastAPI serving, and CI/CD.
+
 ## Technical Setup
 
 - **Local machine:** Windows, VSCode, Claude Code, conda environment `risk` with Python 3.12
@@ -66,6 +94,8 @@ American Family insures homes and properties across the Midwest. Severe weather 
 - **Project name:** `risk`
 - **Kedro package name:** `risk`
 - **Tools selected during kedro new:** Lint (Ruff), Test (pytest), Log, Docs, Data Folder (no PySpark)
+- **Key libraries:** Kedro 1.2.0, kedro-mlflow 2.0.1, LightGBM 4.6.0, MLflow, scikit-learn, matplotlib
+- **Known issue:** kedro-mlflow 2.0.1 is incompatible with Kedro 1.2.0 (`pipeline_name` → `pipeline_names` rename). Patched locally in `mlflow_hook.py`. Patch will be lost on `pip install --upgrade kedro-mlflow` — check if newer version fixes it before upgrading.
 
 ## Kedro Project Structure
 
@@ -74,7 +104,8 @@ risk/
 ├── conf/
 │   ├── base/
 │   │   ├── catalog.yml          ← Data Catalog: all dataset declarations
-│   │   └── parameters.yml       ← Model hyperparameters, thresholds, config
+│   │   ├── parameters.yml       ← Model hyperparameters, thresholds, config
+│   │   └── mlflow.yml           ← MLflow tracking config (experiment name, URI)
 │   └── local/                   ← Environment-specific overrides (not committed)
 ├── data/                        ← Local data folder (for development)
 │   ├── 01_raw/                  ← Maps to Bronze
@@ -89,12 +120,11 @@ risk/
 ├── notebooks/                   ← For EDA and exploration
 ├── src/
 │   └── risk/
-│       ├── pipelines/           ← Pipeline modules we'll build:
-│       │   ├── ingestion/       ← NOAA data pull → Bronze
-│       │   ├── feature_engineering/ ← Bronze → Silver → Gold
-│       │   ├── training/        ← Model training pipeline
-│       │   ├── evaluation/      ← Metrics, explainability
-│       │   └── scoring/         ← Batch + real-time scoring
+│       ├── pipelines/           ← Pipeline modules:
+│       │   ├── data_processing/     ← Bronze → Silver (cleaning, parsing)
+│       │   ├── feature_engineering/ ← Silver → Gold (county-year aggregation)
+│       │   ├── model_training/      ← Gold → trained model + metrics + artifacts
+│       │   └── scoring/             ← (Phase 4) Batch + real-time scoring
 │       ├── pipeline_registry.py ← Registers all pipelines
 │       ├── settings.py          ← Project-level configuration
 │       ├── __init__.py
@@ -139,7 +169,7 @@ risk/
 1. **Kedro for pipeline orchestration, FastAPI for real-time serving.** Kedro excels at DAGs of batch transformations with a data catalog. Real-time APIs need to be stateless and fast — different tool for a different pattern.
 2. **Medallion over ad-hoc staging.** Gives explicit data quality gates between layers, clear lineage, and IAM boundaries per dataset.
 3. **No Docker locally.** Cloud Build handles it. Our workflow: write code → push to GitHub → Cloud Build builds container → deploys to Cloud Run.
-4. **Two models, one pipeline.** Risk tier classifier and damage regressor share feature engineering but produce separate artifacts.
+4. **One regressor, derived tiers.** A single LightGBM damage regressor predicts dollar damage; risk tiers (Low/Moderate/High/Extreme) are derived from predicted damage via configurable thresholds. Simpler than two separate models and ensures tiers are consistent with the dollar prediction.
 5. **Model artifacts in GCS with commit SHA.** Full traceability from prediction → model version → code version → data version.
 
 ## Interview Connection — JD Requirements Map

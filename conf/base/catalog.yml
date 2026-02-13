@@ -26,3 +26,31 @@ storm_events_gold:
   save_args:
     engine: pyarrow
     index: false
+
+# ── Model training pipeline datasets ──────────────────────────
+training_data:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/training_data.parquet
+  save_args:
+    engine: pyarrow
+    index: false
+
+damage_model_artifact:
+  type: pickle.PickleDataset
+  filepath: data/06_models/damage_model.joblib
+  backend: joblib
+
+evaluation_metrics:
+  type: json.JSONDataset
+  filepath: data/08_reporting/evaluation_metrics.json
+
+tier_thresholds:
+  type: json.JSONDataset
+  filepath: data/06_models/tier_thresholds.json
+
+feature_importance:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/feature_importance.parquet
+  save_args:
+    engine: pyarrow
+    index: false

@@ -7,3 +7,40 @@
 
 # ── data_processing pipeline ─────────────────────────────────
 raw_data_path: data/01_raw/noaa
+
+# ── model_training pipeline ──────────────────────────────────
+model_training:
+  feature_columns:
+    - total_events
+    - events_per_month
+    - total_crop_damage_dollars
+    - max_single_event_damage
+    - median_event_damage
+    - n_tornadoes
+    - n_hail
+    - n_thunderstorm_wind
+    - n_flash_flood
+    - n_winter_weather
+    - max_tornado_ef_scale
+    - mean_hail_magnitude
+    - mean_wind_magnitude
+    - total_injuries
+    - total_deaths
+    - pct_events_q1
+    - pct_events_q2
+    - pct_events_q3
+    - pct_events_q4
+  target_column: log_target
+  train_end_target_year: 2022
+  test_start_target_year: 2023
+  model_params:
+    n_estimators: 500
+    learning_rate: 0.05
+    max_depth: 6
+    num_leaves: 31
+    random_state: 42
+    verbose: -1
+  tier_thresholds:
+    low_max: 100000
+    moderate_max: 1000000
+    high_max: 10000000
