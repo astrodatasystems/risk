@@ -1,0 +1,121 @@
+# =============================================================
+# Cloud Build — CI/CD pipeline for the Risk Model project
+# =============================================================
+# Triggered on push to GitHub.  Five steps:
+#   1. Test   — run pytest to catch errors before building
+#   2. Build  — build Docker image from Dockerfile
+#   3. Push   — push to Artifact Registry (commit SHA + latest)
+#   4. Deploy batch  — Cloud Run Job for kedro run --pipeline scoring
+#   5. Deploy API    — Cloud Run Service for real-time predictions
+#
+# This implements the MLOps Level 2 inner loop:
+#   code change → CI (test) → CD (build + deploy) → serving
+# =============================================================
+
+substitutions:
+  _REGION: us-central1
+  _REPO: us-central1-docker.pkg.dev/risk-model-project/risk-model
+  _IMAGE: risk-pipeline
+
+steps:
+  # ── Step 1: Run tests ──────────────────────────────────────────
+  # Runs BEFORE the Docker build so failures are caught early
+  # (no point building a container if the code is broken).
+  - name: "python:3.12-slim"
+    id: "test"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        apt-get update && apt-get install -y --no-install-recommends libgomp1
+        pip install --no-cache-dir -r requirements.txt
+        pip install --no-cache-dir .
+        python -m pytest tests/test_smoke.py -v
+
+  # ── Step 2: Build Docker image ─────────────────────────────────
+  # Tags with both commit SHA (traceability) and latest (convenience).
+  # Uses the Dockerfile in the project root.
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build"
+    args:
+      - "build"
+      - "-t"
+      - "${_REPO}/${_IMAGE}:${COMMIT_SHA}"
+      - "-t"
+      - "${_REPO}/${_IMAGE}:latest"
+      - "."
+
+  # ── Step 3: Push to Artifact Registry ──────────────────────────
+  # Push both tags.  Artifact Registry stores the image for
+  # Cloud Run to pull from.
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-sha"
+    args:
+      - "push"
+      - "${_REPO}/${_IMAGE}:${COMMIT_SHA}"
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-latest"
+    args:
+      - "push"
+      - "${_REPO}/${_IMAGE}:latest"
+
+  # ── Step 4: Deploy batch scoring — Cloud Run Job ───────────────
+  # Jobs run to completion then stop — perfect for batch pipelines.
+  # Cloud Scheduler triggers this nightly for fresh scores.
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-batch"
+    entrypoint: "gcloud"
+    args:
+      - "run"
+      - "jobs"
+      - "deploy"
+      - "risk-scoring-batch"
+      - "--image"
+      - "${_REPO}/${_IMAGE}:${COMMIT_SHA}"
+      - "--region"
+      - "${_REGION}"
+      - "--memory"
+      - "2Gi"
+      - "--command"
+      - "kedro"
+      - "--args"
+      - "run,--pipeline,scoring"
+
+  # ── Step 5: Deploy real-time API — Cloud Run Service ───────────
+  # Services stay running and handle HTTP requests.
+  # min-instances=0 scales to zero when idle (cost savings).
+  # max-instances=3 caps spend during development.
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-api"
+    entrypoint: "gcloud"
+    args:
+      - "run"
+      - "services"
+      - "deploy"
+      - "risk-api"
+      - "--image"
+      - "${_REPO}/${_IMAGE}:${COMMIT_SHA}"
+      - "--region"
+      - "${_REGION}"
+      - "--memory"
+      - "1Gi"
+      - "--min-instances"
+      - "0"
+      - "--max-instances"
+      - "3"
+      - "--command"
+      - "uvicorn"
+      - "--args"
+      - "risk.api:app,--host,0.0.0.0,--port,8080"
+      - "--port"
+      - "8080"
+      - "--allow-unauthenticated"
+
+# Store the built image in Artifact Registry
+images:
+  - "${_REPO}/${_IMAGE}:${COMMIT_SHA}"
+  - "${_REPO}/${_IMAGE}:latest"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
