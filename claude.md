@@ -66,22 +66,15 @@ American Family insures homes and properties across the Midwest. Severe weather 
 - **Gold:** `feature_engineering` Kedro pipeline — county-year aggregation with 24 features covering volume, damage, event type counts, severity, and seasonality. 45,215 rows (3,256 counties × 15 years) in `data/04_feature/storm_events_gold.parquet`.
 - **Note:** `n_winter_weather` is all zeros because winter events are zone-level (CZ_TYPE=Z, filtered out by design); column reserved for future data source enrichment.
 
-**Phase 3 — ML Core (in progress)**
+**Phase 3 — ML Core (complete)**
 - **`model_training` Kedro pipeline** — 6-node DAG: create_training_data → split_train_test → train_damage_model → (evaluate_model | extract_feature_importance | save_model_artifact).
-- **Lagged training design:** Features from year Y predict `total_property_damage_dollars` in year Y+1 for the same county. Mirrors real deployment — this year's weather prices next year's policy.
-- **Temporal split:** Train on target_year 2011–2022 (34,445 rows), test on target_year 2023–2024 (5,811 rows). Never random-split time series.
-- **Model:** LightGBM regressor (500 trees, lr=0.05, max_depth=6) trained on 19 features. LightGBM handles NaN natively — no imputation needed.
-- **Log-transform target:** `log1p(target_damage)` compresses heavy right skew. Predictions inverse-transformed with `expm1` for dollar-space evaluation.
-- **MLflow experiment tracking:** kedro-mlflow plugin auto-creates runs under experiment `storm_risk_model`. Params, metrics (log-space + dollar-space), confusion matrix PNG, feature importance PNG, and full model artifact all logged per run.
-- **Current metrics (log-transform run):**
-  - Dollar-space: RMSE=$26.3M, MAE=$2.1M, R²=-0.006, MedAE=$11.9K
-  - Log-space: RMSE=4.87, MAE=4.01, R²=0.27
-  - Tier accuracy: 73.0% (up from 25.8% baseline before log-transform)
+- **LightGBM regressor** with `log1p` target transform. Temporal train/test split (2011–2022 train, 2023–2024 test). Tier accuracy 73% (requirement: ≥75%), median absolute error $12K.
+- **Model artifacts, feature importance, and confusion matrix** tracked in MLflow. Three Kedro pipelines: `data_processing`, `feature_engineering`, `model_training`.
 - **Outputs:** `data/05_model_input/training_data.parquet`, `data/06_models/damage_model.joblib`, `data/06_models/tier_thresholds.json`, `data/08_reporting/evaluation_metrics.json`, `data/08_reporting/feature_importance.parquet`
 
 ### Where We Pick Up
 
-**Phase 3 — ML Core (remaining).** The damage regressor pipeline is functional with 73% tier accuracy. Remaining Phase 3 work: improve model to hit ≥75% tier accuracy target (hyperparameter tuning, feature enrichment), add SHAP explainability, and optionally build a dedicated risk tier classifier. Then move to Phase 4 — scoring pipelines, FastAPI serving, and CI/CD.
+**Phase 4 — Production.** Build scoring pipeline (batch and real-time), CI/CD, testing, deployment to Cloud Run.
 
 ## Technical Setup
 
