@@ -1,0 +1,70 @@
+# =============================================================
+# .dockerignore — keep the container lean
+# =============================================================
+# Exclude large/unnecessary files from the Docker build context.
+# The data/ exclusions save ~920 MB of raw CSVs and intermediates.
+# Model artifacts and Gold features ARE included (small, needed
+# for scoring to work out of the box).
+# =============================================================
+
+# Version control
+.git/
+.gitignore
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+env/
+
+# MLflow experiment tracking data (large, runtime-only)
+mlruns/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large data files not needed in the container
+# Raw NOAA CSVs (~895 MB) — in production, data comes from BigQuery
+data/01_raw/
+# Silver parquet (~20 MB) — intermediate, regenerable
+data/02_intermediate/
+# Primary (unused)
+data/03_primary/
+# Training data (~1 MB) — only needed for model_training pipeline
+data/05_model_input/
+# Reporting artifacts — regenerated each run
+data/08_reporting/
+
+# NOTE: We KEEP these in the container:
+#   data/04_feature/  (Gold features, 0.8 MB — needed for scoring)
+#   data/06_models/   (model + thresholds, 1.2 MB — needed for scoring)
+#   data/07_model_output/ (output dir, tiny)
+
+# Development-only files
+notebooks/
+docs/
+*.md
+.claude/
+
+# OS artifacts
+nul
+Thumbs.db
+.DS_Store
+
+# Test caches
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Stray artifacts from training runs
+confusion_matrix.png
+feature_importance.png
